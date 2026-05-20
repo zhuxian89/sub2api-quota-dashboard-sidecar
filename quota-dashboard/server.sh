@@ -18,6 +18,7 @@ USAGE_REFRESH_LOCK_DIR="${USAGE_REFRESH_LOCK_DIR:-/tmp/quota-dashboard-usage-ref
 SUB2API_ADMIN_API_KEY="${SUB2API_ADMIN_API_KEY:-}"
 SUB2API_ADMIN_EMAIL="${SUB2API_ADMIN_EMAIL:-}"
 SUB2API_ADMIN_PASSWORD="${SUB2API_ADMIN_PASSWORD:-}"
+SUB2API_ADMIN_API_KEY="${SUB2API_ADMIN_API_KEY:-}"
 
 AUTHORIZED_ADMIN_CREDENTIAL=""
 
@@ -142,6 +143,14 @@ is_admin_token() {
     token="$1"
     [ -n "$token" ] || return 1
     is_admin_credential "$(make_admin_token_credential "$token")"
+}
+
+is_admin_api_key() {
+    api_key="$1"
+    [ -n "$api_key" ] || return 1
+    wget -q -T 5 --tries=1 -O /dev/null \
+        --header="x-api-key: $api_key" \
+        "${SUB2API_BASE_URL%/}/api/v1/admin/accounts?page=1&page_size=1&timezone=Asia%2FShanghai"
 }
 
 login_admin_token() {
@@ -271,11 +280,24 @@ record_refresh_state() {
 
 refresh_account_usage() {
     account_id="$1"
+<<<<<<< HEAD
     credential="$2"
     header="$(admin_auth_header "$credential")" || return 1
     if body="$(wget -q -T "$USAGE_REFRESH_TIMEOUT_SECONDS" --tries=1 -O - \
         --header="$header" \
         "${SUB2API_BASE_URL%/}/api/v1/admin/accounts/${account_id}/usage")"; then
+=======
+    auth_value="$2"
+    auth_mode="${3:-token}"
+    if [ "$auth_mode" = "api_key" ]; then
+        auth_header="x-api-key: $auth_value"
+    else
+        auth_header="Authorization: Bearer $auth_value"
+    fi
+    if body="$(wget -q -T "$USAGE_REFRESH_TIMEOUT_SECONDS" --tries=1 -O - \
+        --header="$auth_header" \
+        "${SUB2API_BASE_URL%/}/api/v1/admin/accounts/${account_id}/usage?source=active&timezone=Asia%2FShanghai")"; then
+>>>>>>> 822107c (feat: improve embedded quota dashboard deployment and refresh auth)
         body_b64="$(printf '%s' "$body" | base64 | tr -d '\n')"
         if psql_base \
             -qAtX \
@@ -327,6 +349,7 @@ resolve_admin_credential() {
 
 run_usage_refresh() {
     source="${1:-scheduled}"
+<<<<<<< HEAD
     credential="$(resolve_admin_credential "${2:-}" 2>/dev/null || true)"
     if [ -z "$credential" ]; then
         printf '[quota-dashboard] usage refresh skip source=%s reason=no_admin_token\n' "$source" >&2
@@ -334,6 +357,37 @@ run_usage_refresh() {
     fi
 
     save_admin_credential "$credential"
+=======
+    token="${2:-}"
+    auth_mode="token"
+
+    if [ -n "$SUB2API_ADMIN_API_KEY" ] && is_admin_api_key "$SUB2API_ADMIN_API_KEY"; then
+        token="$SUB2API_ADMIN_API_KEY"
+        auth_mode="api_key"
+    else
+        if [ -z "$token" ]; then
+            token="$(load_admin_token 2>/dev/null || true)"
+        fi
+        if [ -z "$token" ]; then
+            token="$(login_admin_token 2>/dev/null || true)"
+        fi
+
+        if [ -z "$token" ]; then
+            printf '[quota-dashboard] usage refresh skip source=%s reason=no_admin_token\n' "$source" >&2
+            return 0
+        fi
+
+        if ! is_admin_token "$token"; then
+            rm -f "$USAGE_REFRESH_TOKEN_FILE"
+            token="$(login_admin_token 2>/dev/null || true)"
+            if [ -z "$token" ] || ! is_admin_token "$token"; then
+                printf '[quota-dashboard] usage refresh skip source=%s reason=admin_token_invalid\n' "$source" >&2
+                rm -f "$USAGE_REFRESH_TOKEN_FILE"
+                return 0
+            fi
+        fi
+    fi
+>>>>>>> 822107c (feat: improve embedded quota dashboard deployment and refresh auth)
 
     ids="$(fetch_usage_account_ids)"
     total="$(printf '%s\n' "$ids" | sed '/^$/d' | wc -l | tr -d ' ')"
@@ -347,7 +401,11 @@ run_usage_refresh() {
     printf '[quota-dashboard] usage refresh start source=%s total=%s\n' "$source" "$total" >&2
 
     for account_id in $ids; do
+<<<<<<< HEAD
         if refresh_account_usage "$account_id" "$credential"; then
+=======
+        if refresh_account_usage "$account_id" "$token" "$auth_mode"; then
+>>>>>>> 822107c (feat: improve embedded quota dashboard deployment and refresh auth)
             ok=$((ok + 1))
         else
             fail=$((fail + 1))

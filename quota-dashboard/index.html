@@ -3510,6 +3510,14 @@
       renderAll();
     }
 
+    function buildApiPath(path) {
+      var pathname = window.location.pathname || "/";
+      if (pathname.indexOf("/quota-dashboard") === 0) {
+        return "/quota-dashboard" + path;
+      }
+      return path;
+    }
+
     function load(path) {
       clearError();
       setLoading(true);
@@ -3521,7 +3529,7 @@
         showError("缺少授权参数或后台登录态，请从后台菜单进入，或使用带 secret / admin_api_key / x_admin_api 的直链访问。");
         return;
       }
-      var url = path;
+      var url = buildApiPath(path);
       if (auth) url += "?" + auth;
       request(url, function (err, text) {
         setLoading(false);

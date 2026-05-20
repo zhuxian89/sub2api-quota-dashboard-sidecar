@@ -16,6 +16,7 @@ services:
       - SUB2API_ADMIN_API_KEY=${QUOTA_DASHBOARD_ADMIN_API_KEY:-}
       - SUB2API_ADMIN_EMAIL=${QUOTA_DASHBOARD_ADMIN_EMAIL:-}
       - SUB2API_ADMIN_PASSWORD=${QUOTA_DASHBOARD_ADMIN_PASSWORD:-}
+      - SUB2API_ADMIN_API_KEY=${QUOTA_DASHBOARD_ADMIN_API_KEY:-}
       - DASHBOARD_TOKEN=${QUOTA_DASHBOARD_TOKEN:-}
       - QUOTA_DASHBOARD_PUBLIC_URL=${QUOTA_DASHBOARD_PUBLIC_URL:-}
       - QUOTA_DASHBOARD_MENU_ID=${QUOTA_DASHBOARD_MENU_ID:-account-quota-dashboard}
@@ -29,6 +30,8 @@ services:
     command: ["/bin/sh", "/app/server.sh", "server"]
     ports:
       - "${BIND_HOST:-0.0.0.0}:${QUOTA_DASHBOARD_PORT:-18081}:${QUOTA_DASHBOARD_INTERNAL_PORT:-8081}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -T 5 -O /dev/null http://localhost:${QUOTA_DASHBOARD_INTERNAL_PORT:-8081}/health"]
       interval: 30s
@@ -36,9 +39,7 @@ services:
       retries: 3
       start_period: 10s
 
-# If your sub2api containers run in a named Docker network, attach this service
-# to the same network and uncomment the block below.
-# networks:
-#   default:
-#     name: sub2api-network
-#     external: true
+networks:
+  default:
+    name: deploy_default
+    external: true
